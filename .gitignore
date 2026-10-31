@@ -1,0 +1,19 @@
+# Build output
+main.js
+main.js.map
+*.map
+
+# Dependencies
+node_modules/
+
+# Obsidian plugin data (contains credentials)
+data.json
+.obsidian/
+
+# Tooling
+coverage/
+dist/
+.DS_Store
+*.log
+.env
+.env.*
