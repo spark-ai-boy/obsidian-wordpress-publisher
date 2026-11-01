@@ -53,7 +53,7 @@ npm run dev
 Link the repository into a test vault:
 
 ```bash
-ln -s "$PWD" "/path/to/vault/.obsidian/plugins/wordpress-publisher"
+ln -s "$PWD" "/path/to/vault/.obsidian/plugins/obsidian-wordpress-publisher"
 ```
 
 Reload the plugin in Obsidian after changes.
