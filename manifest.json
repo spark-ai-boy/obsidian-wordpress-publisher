@@ -1,7 +1,7 @@
 {
   "id": "wordpress-publisher-pro",
   "name": "WordPress Publisher",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "minAppVersion": "1.13.0",
   "description": "Publish and update notes as WordPress posts with categories, tags, featured images, scheduling, previews, and multi-site profiles. 中文 / English.",
   "author": "spark-ai-boy",
