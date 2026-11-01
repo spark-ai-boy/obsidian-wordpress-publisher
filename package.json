@@ -1,6 +1,6 @@
 {
   "name": "obsidian-wordpress-publisher",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Publish and update Obsidian notes as WordPress posts, with media uploads, taxonomy management, scheduling, and multi-site profiles.",
   "main": "main.js",
   "type": "commonjs",
