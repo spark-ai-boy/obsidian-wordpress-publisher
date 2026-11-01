@@ -1,6 +1,6 @@
 /** Cross-platform ID generator with a fallback for older Obsidian runtimes. */
 export function createId(): string {
-  const cryptoObject = globalThis.crypto as Crypto | undefined;
+  const cryptoObject = window.crypto;
   if (cryptoObject && typeof cryptoObject.randomUUID === "function") {
     return cryptoObject.randomUUID();
   }

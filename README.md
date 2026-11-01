@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/spark-ai-boy/obsidian-wordpress-publisher?style=flat-square)](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/releases)
 [![CI](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/actions/workflows/ci.yml/badge.svg)](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.5-7c3aed?style=flat-square)](https://obsidian.md)
+[![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.13-7c3aed?style=flat-square)](https://obsidian.md)
 [![WordPress](https://img.shields.io/badge/WordPress-5.6%2B-21759b?style=flat-square)](https://wordpress.org)
 
 [中文](README.zh.md) · **English**
@@ -61,7 +61,7 @@ Publish Obsidian notes to WordPress with post creation/updating, categories and 
 
 ## Requirements
 
-- **Obsidian** 1.5.0 or newer.
+- **Obsidian** 1.13.0 or newer.
 - **WordPress** 5.6 or newer (Application Passwords are in core since 5.6).
 - The WordPress REST API must be reachable, and permalinks must not be set to Plain.
 - **HTTPS** is strongly recommended and normally required by WordPress for application passwords. Local development can use `WP_ENVIRONMENT_TYPE=local`.
@@ -352,6 +352,7 @@ Use the preview before publishing.
   - Do not sync the vault to untrusted devices.
   - Revoke the application password in WordPress if it may have leaked.
 - No telemetry or analytics are sent.
+- The image picker enumerates image file paths only when you open it. It does not scan the vault on startup or upload file paths.
 - Remote image downloads do not include WordPress credentials.
 - Before publishing, HTML is scrubbed of `<script>`, `<style>`, `<iframe>`, inline event handlers, and `javascript:` links.
 - WordPress still applies its own content filtering and permission model.
@@ -436,7 +437,7 @@ See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 - Node.js 20+
 - npm 9+
-- Obsidian 1.5+
+- Obsidian 1.13+
 
 ### Local setup
 

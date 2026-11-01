@@ -464,7 +464,7 @@ export class MediaService {
     } catch {
       name = "remote-image";
     }
-    name = name.replace(/[^\w.\-]+/g, "-");
+    name = name.replace(/[^\w.-]+/g, "-");
     if (!fileExtension(name)) {
       const extension = EXTENSION_BY_MIME[contentType] ?? "jpg";
       name = `${name || "remote-image"}.${extension}`;

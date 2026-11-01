@@ -2,10 +2,12 @@ import {
   App,
   Notice,
   PluginSettingTab,
-  Setting
+  Setting,
+  type SettingDefinition,
+  type SettingDefinitionItem
 } from "obsidian";
 import type WordPressPublisherPlugin from "../main";
-import type { PublisherSettings, SiteProfile } from "../types";
+import type { SiteProfile } from "../types";
 import {
   DOCS_URL,
   POST_FORMATS,
@@ -17,6 +19,24 @@ import { formatLabel, setLanguage, statusLabel, t } from "../i18n";
 import { ConfirmModal } from "./confirm-modal";
 import { SiteModal } from "./site-modal";
 
+const TOGGLE_KEYS = [
+  "useFirstHeadingAsTitle",
+  "stripMatchingHeading",
+  "useNoteTags",
+  "uploadContentImages",
+  "uploadRemoteImages",
+  "autoFeaturedImage",
+  "openPostAfterPublish",
+  "showStatusBar",
+  "detectRemoteChanges"
+] as const;
+
+type ToggleKey = (typeof TOGGLE_KEYS)[number];
+
+function isToggleKey(key: string): key is ToggleKey {
+  return (TOGGLE_KEYS as readonly string[]).includes(key);
+}
+
 export class PublisherSettingTab extends PluginSettingTab {
   private readonly plugin: WordPressPublisherPlugin;
 
@@ -25,249 +45,361 @@ export class PublisherSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-    containerEl.addClass("wordpress-publisher-settings");
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    this.containerEl.addClass("wordpress-publisher-settings");
+    const activeSite = this.activeSite();
+    const hasSites = this.plugin.settings.sites.length > 0;
 
-    new Setting(containerEl).setName(t("settings.general")).setHeading();
-
-    new Setting(containerEl)
-      .setName(t("settings.language"))
-      .setDesc(t("settings.languageDesc"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("auto", t("settings.languageAuto"))
-          .addOption("zh", t("settings.languageZh"))
-          .addOption("en", t("settings.languageEn"))
-          .setValue(this.plugin.settings.language)
-          .onChange(async (value) => {
-            this.plugin.settings.language = value as PublisherSettings["language"];
-            setLanguage(this.plugin.settings.language);
-            await this.plugin.saveSettings();
-            this.plugin.updateStatusBar();
-            this.display();
-            new Notice(t("settings.languageReload"));
-          });
-      });
-
-    new Setting(containerEl).setName(t("settings.connection")).setHeading();
-    this.renderSites(containerEl);
-
-    new Setting(containerEl).setName(t("settings.defaults")).setHeading();
-    const activeSite =
-      this.plugin.settings.sites.find(
-        (site) => site.id === this.plugin.settings.activeSiteId
-      ) ?? this.plugin.settings.sites[0];
-
-    new Setting(containerEl)
-      .setName(t("settings.defaultStatus"))
-      .setDesc(t("settings.defaultStatusDesc"))
-      .addDropdown((dropdown) => {
-        for (const status of POST_STATUSES) {
-          dropdown.addOption(status, statusLabel(status));
-        }
-        dropdown
-          .setValue(activeSite?.defaultStatus ?? "draft")
-          .setDisabled(!activeSite)
-          .onChange(async (value) => {
-            if (!activeSite) {
-              return;
+    return [
+      {
+        type: "group",
+        heading: t("settings.general"),
+        items: [
+          this.dropdownDefinition(
+            t("settings.language"),
+            t("settings.languageDesc"),
+            "language",
+            {
+              auto: t("settings.languageAuto"),
+              zh: t("settings.languageZh"),
+              en: t("settings.languageEn")
             }
-            activeSite.defaultStatus = value as SiteProfile["defaultStatus"];
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName(t("settings.defaultFormat"))
-      .setDesc(t("settings.defaultFormatDesc"))
-      .addDropdown((dropdown) => {
-        for (const format of POST_FORMATS) {
-          dropdown.addOption(format, formatLabel(format));
-        }
-        dropdown
-          .setValue(activeSite?.defaultFormat ?? "standard")
-          .setDisabled(!activeSite)
-          .onChange(async (value) => {
-            if (!activeSite) {
-              return;
+          )
+        ]
+      },
+      {
+        type: "group",
+        heading: t("settings.connection"),
+        items: [
+          ...(hasSites
+            ? [
+                this.dropdownDefinition(
+                  t("settings.activeSite"),
+                  t("settings.activeSiteDesc"),
+                  "activeSiteId",
+                  this.siteOptions()
+                )
+              ]
+            : []),
+          {
+            name: t("settings.manageSites"),
+            desc: t("settings.manageSitesDesc"),
+            render: (setting) => this.renderSites(setting)
+          }
+        ]
+      },
+      {
+        type: "group",
+        heading: t("settings.defaults"),
+        items: [
+          this.dropdownDefinition(
+            t("settings.defaultStatus"),
+            t("settings.defaultStatusDesc"),
+            "defaultStatus",
+            Object.fromEntries(
+              POST_STATUSES.map((status) => [status, statusLabel(status)])
+            ),
+            !activeSite
+          ),
+          this.dropdownDefinition(
+            t("settings.defaultFormat"),
+            t("settings.defaultFormatDesc"),
+            "defaultFormat",
+            Object.fromEntries(
+              POST_FORMATS.map((format) => [format, formatLabel(format)])
+            ),
+            !activeSite
+          ),
+          this.dropdownDefinition(
+            t("settings.commentStatus"),
+            "",
+            "commentStatus",
+            {
+              open: t("comments.open"),
+              closed: t("comments.closed")
             }
-            activeSite.defaultFormat = value as SiteProfile["defaultFormat"];
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName(t("settings.commentStatus"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("open", t("comments.open"))
-          .addOption("closed", t("comments.closed"))
-          .setValue(this.plugin.settings.defaultCommentStatus)
-          .onChange(async (value) => {
-            this.plugin.settings.defaultCommentStatus = value as "open" | "closed";
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName(t("settings.pingStatus"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("open", t("pings.open"))
-          .addOption("closed", t("pings.closed"))
-          .setValue(this.plugin.settings.defaultPingStatus)
-          .onChange(async (value) => {
-            this.plugin.settings.defaultPingStatus = value as "open" | "closed";
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl).setName(t("settings.content")).setHeading();
-
-    this.addToggle(
-      containerEl,
-      t("settings.useH1"),
-      t("settings.useH1Desc"),
-      "useFirstHeadingAsTitle"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.stripH1"),
-      t("settings.stripH1Desc"),
-      "stripMatchingHeading"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.useNoteTags"),
-      t("settings.useNoteTagsDesc"),
-      "useNoteTags"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.uploadImages"),
-      t("settings.uploadImagesDesc"),
-      "uploadContentImages"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.uploadRemote"),
-      t("settings.uploadRemoteDesc"),
-      "uploadRemoteImages"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.autoFeatured"),
-      t("settings.autoFeaturedDesc"),
-      "autoFeaturedImage"
-    );
-
-    new Setting(containerEl)
-      .setName(t("settings.wikilinks"))
-      .setDesc(t("settings.wikilinksDesc"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("text", t("settings.wikilinksText"))
-          .addOption("link", t("settings.wikilinksLink"))
-          .setValue(this.plugin.settings.wikilinkMode)
-          .onChange(async (value) => {
-            this.plugin.settings.wikilinkMode = value as "text" | "link";
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl).setName(t("settings.workflow")).setHeading();
-
-    this.addToggle(
-      containerEl,
-      t("settings.openAfter"),
-      t("settings.openAfterDesc"),
-      "openPostAfterPublish"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.statusBar"),
-      t("settings.statusBarDesc"),
-      "showStatusBar"
-    );
-    this.addToggle(
-      containerEl,
-      t("settings.detectChanges"),
-      t("settings.detectChangesDesc"),
-      "detectRemoteChanges"
-    );
-
-    new Setting(containerEl).setName(t("settings.about")).setHeading();
-
-    new Setting(containerEl)
-      .setName(t("settings.version", { version: this.plugin.manifest.version }))
-      .addButton((button) =>
-        button
-          .setButtonText(t("settings.docs"))
-          .onClick(() => window.open(DOCS_URL, "_blank"))
-      )
-      .addButton((button) =>
-        button
-          .setButtonText(t("settings.github"))
-          .onClick(() => window.open(REPO_URL, "_blank"))
-      );
-
-    new Setting(containerEl)
-      .setName(t("settings.security"))
-      .setDesc(t("settings.securityDesc"));
-
-    containerEl.createDiv({
-      cls: "wp-muted wp-settings-note",
-      text: t("settings.storageNote")
-    });
+          ),
+          this.dropdownDefinition(
+            t("settings.pingStatus"),
+            "",
+            "pingStatus",
+            {
+              open: t("pings.open"),
+              closed: t("pings.closed")
+            }
+          )
+        ]
+      },
+      {
+        type: "group",
+        heading: t("settings.content"),
+        items: [
+          this.toggleDefinition(
+            t("settings.useH1"),
+            t("settings.useH1Desc"),
+            "useFirstHeadingAsTitle"
+          ),
+          this.toggleDefinition(
+            t("settings.stripH1"),
+            t("settings.stripH1Desc"),
+            "stripMatchingHeading"
+          ),
+          this.toggleDefinition(
+            t("settings.useNoteTags"),
+            t("settings.useNoteTagsDesc"),
+            "useNoteTags"
+          ),
+          this.toggleDefinition(
+            t("settings.uploadImages"),
+            t("settings.uploadImagesDesc"),
+            "uploadContentImages"
+          ),
+          this.toggleDefinition(
+            t("settings.uploadRemote"),
+            t("settings.uploadRemoteDesc"),
+            "uploadRemoteImages"
+          ),
+          this.toggleDefinition(
+            t("settings.autoFeatured"),
+            t("settings.autoFeaturedDesc"),
+            "autoFeaturedImage"
+          ),
+          this.dropdownDefinition(
+            t("settings.wikilinks"),
+            t("settings.wikilinksDesc"),
+            "wikilinkMode",
+            {
+              text: t("settings.wikilinksText"),
+              link: t("settings.wikilinksLink")
+            }
+          )
+        ]
+      },
+      {
+        type: "group",
+        heading: t("settings.workflow"),
+        items: [
+          this.toggleDefinition(
+            t("settings.openAfter"),
+            t("settings.openAfterDesc"),
+            "openPostAfterPublish"
+          ),
+          this.toggleDefinition(
+            t("settings.statusBar"),
+            t("settings.statusBarDesc"),
+            "showStatusBar"
+          ),
+          this.toggleDefinition(
+            t("settings.detectChanges"),
+            t("settings.detectChangesDesc"),
+            "detectRemoteChanges"
+          )
+        ]
+      },
+      {
+        type: "group",
+        heading: t("settings.about"),
+        items: [
+          {
+            name: t("settings.version", {
+              version: this.plugin.manifest.version
+            }),
+            render: (setting) => {
+              setting.addButton((button) =>
+                button
+                  .setButtonText(t("settings.docs"))
+                  .onClick(() => window.open(DOCS_URL, "_blank"))
+              );
+              setting.addButton((button) =>
+                button
+                  .setButtonText(t("settings.github"))
+                  .onClick(() => window.open(REPO_URL, "_blank"))
+              );
+            }
+          },
+          {
+            name: t("settings.security"),
+            desc: `${t("settings.securityDesc")}\n\n${t("settings.storageNote")}`
+          }
+        ]
+      }
+    ];
   }
 
-  private renderSites(containerEl: HTMLElement): void {
-    const settings = this.plugin.settings;
+  getControlValue(key: string): unknown {
+    if (key === "language") {
+      return this.plugin.settings.language;
+    }
+    if (key === "activeSiteId") {
+      return this.activeSite()?.id ?? "";
+    }
+    if (key === "defaultStatus") {
+      return this.activeSite()?.defaultStatus ?? "draft";
+    }
+    if (key === "defaultFormat") {
+      return this.activeSite()?.defaultFormat ?? "standard";
+    }
+    if (key === "commentStatus") {
+      return this.plugin.settings.defaultCommentStatus;
+    }
+    if (key === "pingStatus") {
+      return this.plugin.settings.defaultPingStatus;
+    }
+    if (key === "wikilinkMode") {
+      return this.plugin.settings.wikilinkMode;
+    }
+    if (isToggleKey(key)) {
+      return this.plugin.settings[key];
+    }
+    return undefined;
+  }
 
-    if (settings.sites.length > 0) {
-      new Setting(containerEl)
-        .setName(t("settings.activeSite"))
-        .setDesc(t("settings.activeSiteDesc"))
-        .addDropdown((dropdown) => {
-          for (const site of settings.sites) {
-            dropdown.addOption(site.id, site.name || site.url);
-          }
-          dropdown
-            .setValue(settings.activeSiteId || settings.sites[0]?.id || "")
-            .onChange(async (value) => {
-              settings.activeSiteId = value;
-              await this.plugin.saveSettings();
-              this.display();
-            });
-        });
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "language") {
+      const language = value === "zh" || value === "en" ? value : "auto";
+      this.plugin.settings.language = language;
+      setLanguage(language);
+      await this.plugin.saveSettings();
+      this.plugin.updateStatusBar();
+      this.update();
+      new Notice(t("settings.languageReload"));
+      return;
     }
 
-    const list = containerEl.createDiv({ cls: "wp-site-list" });
-    if (settings.sites.length === 0) {
+    if (key === "activeSiteId") {
+      const id = String(value);
+      if (!this.plugin.settings.sites.some((site) => site.id === id)) {
+        return;
+      }
+      this.plugin.settings.activeSiteId = id;
+      await this.plugin.saveSettings();
+      this.update();
+      return;
+    }
+
+    if (key === "defaultStatus") {
+      const site = this.activeSite();
+      if (!site) {
+        return;
+      }
+      site.defaultStatus = value as SiteProfile["defaultStatus"];
+      await this.plugin.saveSettings();
+      return;
+    }
+
+    if (key === "defaultFormat") {
+      const site = this.activeSite();
+      if (!site) {
+        return;
+      }
+      site.defaultFormat = value as SiteProfile["defaultFormat"];
+      await this.plugin.saveSettings();
+      return;
+    }
+
+    if (key === "commentStatus") {
+      this.plugin.settings.defaultCommentStatus =
+        value === "closed" ? "closed" : "open";
+      await this.plugin.saveSettings();
+      return;
+    }
+
+    if (key === "pingStatus") {
+      this.plugin.settings.defaultPingStatus =
+        value === "closed" ? "closed" : "open";
+      await this.plugin.saveSettings();
+      return;
+    }
+
+    if (key === "wikilinkMode") {
+      this.plugin.settings.wikilinkMode = value === "link" ? "link" : "text";
+      await this.plugin.saveSettings();
+      return;
+    }
+
+    if (isToggleKey(key)) {
+      this.plugin.settings[key] = value === true;
+      await this.plugin.saveSettings();
+      if (key === "showStatusBar") {
+        this.plugin.updateStatusBar();
+      }
+    }
+  }
+
+  private activeSite(): SiteProfile | undefined {
+    return (
+      this.plugin.settings.sites.find(
+        (site) => site.id === this.plugin.settings.activeSiteId
+      ) ?? this.plugin.settings.sites[0]
+    );
+  }
+
+  private siteOptions(): Record<string, string> {
+    return Object.fromEntries(
+      this.plugin.settings.sites.map((site) => [
+        site.id,
+        site.name || site.url
+      ])
+    );
+  }
+
+  private dropdownDefinition(
+    name: string,
+    desc: string,
+    key: string,
+    options: Record<string, string>,
+    disabled = false
+  ): SettingDefinition {
+    return {
+      name,
+      desc,
+      control: {
+        type: "dropdown",
+        key,
+        options,
+        disabled
+      }
+    };
+  }
+
+  private toggleDefinition(
+    name: string,
+    desc: string,
+    key: ToggleKey
+  ): SettingDefinition {
+    return {
+      name,
+      desc,
+      control: {
+        type: "toggle",
+        key
+      }
+    };
+  }
+
+  private renderSites(setting: Setting): void {
+    const list = setting.settingEl.createDiv({ cls: "wp-site-list" });
+
+    if (this.plugin.settings.sites.length === 0) {
       list.createDiv({ cls: "wp-empty", text: t("settings.noSites") });
     }
 
-    for (const site of settings.sites) {
-      this.renderSiteCard(list, site, site.id === settings.activeSiteId);
+    const activeId = this.activeSite()?.id;
+    for (const site of this.plugin.settings.sites) {
+      this.renderSiteCard(list, site, site.id === activeId);
     }
 
-    const addSetting = new Setting(containerEl)
-      .setName(t("settings.manageSites"))
-      .setDesc(t("settings.manageSitesDesc"))
-      .addButton((button) =>
-        button
-          .setButtonText(t("settings.addSite"))
-          .setCta()
-          .onClick(() => {
-            new SiteModal(this.app, this.plugin, undefined, () =>
-              this.display()
-            ).open();
-          })
-      );
-
-    addSetting.settingEl.addClass("wp-add-site");
+    setting.settingEl.addClass("wp-add-site", "wp-sites-row");
+    setting.addButton((button) =>
+      button
+        .setButtonText(t("settings.addSite"))
+        .setCta()
+        .onClick(() => {
+          new SiteModal(this.app, this.plugin, undefined, () =>
+            this.update()
+          ).open();
+        })
+    );
   }
 
   private renderSiteCard(
@@ -299,7 +431,7 @@ export class PublisherSettingTab extends PluginSettingTab {
 
     const edit = actions.createEl("button", { text: t("common.edit") });
     edit.addEventListener("click", () => {
-      new SiteModal(this.app, this.plugin, site, () => this.display()).open();
+      new SiteModal(this.app, this.plugin, site, () => this.update()).open();
     });
 
     const remove = actions.createEl("button", {
@@ -324,7 +456,7 @@ export class PublisherSettingTab extends PluginSettingTab {
           }
           await this.plugin.saveSettings();
           new Notice(t("site.deleted"));
-          this.display();
+          this.update();
         }
       }).open();
     });
@@ -352,40 +484,5 @@ export class PublisherSettingTab extends PluginSettingTab {
     } finally {
       button.disabled = false;
     }
-  }
-
-  private addToggle(
-    containerEl: HTMLElement,
-    name: string,
-    desc: string,
-    key: keyof Pick<
-      PublisherSettings,
-      | "useFirstHeadingAsTitle"
-      | "stripMatchingHeading"
-      | "useNoteTags"
-      | "uploadContentImages"
-      | "uploadRemoteImages"
-      | "autoFeaturedImage"
-      | "openPostAfterPublish"
-      | "showStatusBar"
-      | "detectRemoteChanges"
-    >
-  ): void {
-    new Setting(containerEl)
-      .setName(name)
-      .setDesc(desc)
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings[key]).onChange(async (value) => {
-          const settings = this.plugin.settings as unknown as Record<
-            string,
-            boolean
-          >;
-          settings[key] = value;
-          await this.plugin.saveSettings();
-          if (key === "showStatusBar") {
-            this.plugin.updateStatusBar();
-          }
-        })
-      );
   }
 }

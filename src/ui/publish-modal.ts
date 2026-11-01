@@ -1,4 +1,4 @@
-import { App, Component, Modal, Notice, Setting } from "obsidian";
+import { App, Component, Modal, Notice, Setting, setIcon } from "obsidian";
 import type WordPressPublisherPlugin from "../main";
 import type {
   OpenStatus,
@@ -172,11 +172,10 @@ export class PublishModal extends Modal {
 
   private pickSite(): SiteProfile | undefined {
     const frontmatter = this.app.metadataCache.getFileCache(this.file)
-      ?.frontmatter as Record<string, unknown> | undefined;
+      ?.frontmatter;
+    const rawLinkedUrl: unknown = frontmatter?.[FRONTMATTER_KEYS.siteUrl];
     const linkedUrl =
-      typeof frontmatter?.[FRONTMATTER_KEYS.siteUrl] === "string"
-        ? (frontmatter[FRONTMATTER_KEYS.siteUrl] as string)
-        : undefined;
+      typeof rawLinkedUrl === "string" ? rawLinkedUrl : undefined;
     return (
       (linkedUrl
         ? this.sites.find((site) => isSameSite(site.url, linkedUrl))
@@ -339,7 +338,11 @@ export class PublishModal extends Modal {
 
   private renderHeader(): void {
     const summary = this.contentEl.createDiv({ cls: "wp-publish-summary" });
-    summary.createSpan({ cls: "wp-publish-file", text: this.file.path });
+    const icon = summary.createSpan({ cls: "wp-publish-icon" });
+    setIcon(icon, "file-text");
+    const heading = summary.createDiv({ cls: "wp-publish-summary-main" });
+    heading.createDiv({ cls: "wp-publish-name", text: this.file.basename });
+    heading.createDiv({ cls: "wp-publish-file", text: this.file.path });
     summary.createSpan({
       cls: "wp-publish-mode",
       text: this.existingPostId
@@ -439,117 +442,255 @@ export class PublishModal extends Modal {
   }
 
   private renderDetails(): void {
-    const container = this.contentEl.createDiv({ cls: "wp-form" });
+    const layout = this.contentEl.createDiv({ cls: "wp-publish-layout" });
+    const main = layout.createDiv({ cls: "wp-publish-main" });
+    const side = layout.createDiv({ cls: "wp-publish-side" });
 
-    new Setting(container)
-      .setName(t("publish.site"))
-      .addDropdown((dropdown) => {
-        for (const site of this.sites) {
-          dropdown.addOption(site.id, site.name || site.url);
-        }
-        dropdown
-          .setValue(this.site.id)
-          .setDisabled(this.sites.length <= 1 || this.busy)
-          .onChange((value) => void this.changeSite(value));
-      });
+    this.renderContentCard(main);
+    this.renderCategories(main);
+    this.renderFeaturedImage(main);
+    this.renderPublishCard(side);
+    this.renderAdvanced(side);
+    this.renderTipsCard(side);
+  }
 
-    new Setting(container)
-      .setName(`${t("publish.title")} *`)
-      .addText((text) => {
-        text
-          .setPlaceholder(t("publish.titlePlaceholder"))
-          .setValue(this.state.title)
-          .onChange((value) => {
-            this.state.title = value;
-          });
-        text.inputEl.addClass("wp-title-input");
-      });
+  private createCard(
+    parent: HTMLElement,
+    title: string,
+    icon: string
+  ): { card: HTMLElement; head: HTMLElement } {
+    const card = parent.createDiv({ cls: "wp-publish-card" });
+    const head = card.createDiv({ cls: "wp-card-head" });
+    const iconEl = head.createSpan({ cls: "wp-card-icon" });
+    setIcon(iconEl, icon);
+    head.createSpan({ cls: "wp-card-title", text: title });
+    return { card, head };
+  }
 
-    new Setting(container)
-      .setName(t("publish.status"))
-      .addDropdown((dropdown) => {
-        for (const status of POST_STATUSES) {
-          dropdown.addOption(status, statusLabel(status));
-        }
-        dropdown.setValue(this.state.status).onChange((value) => {
-          this.state.status = value as PostStatus;
-          if (value === "future" && !this.state.scheduledDate) {
-            this.state.scheduledDate = defaultScheduleValue();
-          }
-          this.render();
-        });
-      });
+  private createField(
+    parent: HTMLElement,
+    label: string,
+    desc = ""
+  ): HTMLElement {
+    const field = parent.createDiv({ cls: "wp-field" });
+    field.createDiv({ cls: "wp-field-label", text: label });
+    if (desc) {
+      field.createDiv({ cls: "wp-field-desc", text: desc });
+    }
+    return field;
+  }
+
+  private createInput(
+    parent: HTMLElement,
+    value: string,
+    placeholder: string,
+    type = "text"
+  ): HTMLInputElement {
+    const input = parent.createEl("input", {
+      cls: "wp-input",
+      attr: { type, placeholder }
+    });
+    input.value = value;
+    return input;
+  }
+
+  private createSelect(
+    parent: HTMLElement,
+    options: Record<string, string>,
+    value: string
+  ): HTMLSelectElement {
+    const select = parent.createEl("select", { cls: "wp-select" });
+    for (const [key, label] of Object.entries(options)) {
+      select.createEl("option", { value: key, text: label });
+    }
+    select.value = value;
+    return select;
+  }
+
+  private iconButton(
+    parent: HTMLElement,
+    icon: string,
+    label: string,
+    onClick: () => void
+  ): HTMLButtonElement {
+    const button = parent.createEl("button", {
+      cls: "wp-icon-button",
+      attr: { type: "button", "aria-label": label, title: label }
+    });
+    setIcon(button, icon);
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  private toggleField(
+    parent: HTMLElement,
+    label: string,
+    desc: string,
+    value: boolean,
+    onChange: (value: boolean) => void
+  ): void {
+    const field = parent.createDiv({ cls: "wp-toggle-field" });
+    const copy = field.createDiv({ cls: "wp-toggle-copy" });
+    copy.createDiv({ cls: "wp-field-label", text: label });
+    if (desc) {
+      copy.createDiv({ cls: "wp-field-desc", text: desc });
+    }
+    const input = field.createEl("input", {
+      cls: "wp-toggle",
+      attr: { type: "checkbox" }
+    });
+    input.checked = value;
+    input.addEventListener("change", () => onChange(input.checked));
+  }
+
+  private renderContentCard(container: HTMLElement): void {
+    const { card } = this.createCard(container, t("publish.content"), "file-text");
+
+    const titleField = this.createField(card, `${t("publish.title")} *`);
+    const titleInput = this.createInput(
+      titleField,
+      this.state.title,
+      t("publish.titlePlaceholder")
+    );
+    titleInput.addClass("wp-title-input");
+    titleInput.addEventListener("input", () => {
+      this.state.title = titleInput.value;
+    });
+
+    const excerptField = this.createField(card, t("publish.excerpt"));
+    const excerptInput = excerptField.createEl("textarea", {
+      cls: "wp-input",
+      attr: {
+        rows: "3",
+        placeholder: t("publish.excerptPlaceholder")
+      }
+    });
+    excerptInput.value = this.state.excerpt;
+    excerptInput.addEventListener("input", () => {
+      this.state.excerpt = excerptInput.value;
+      this.state.excerptEdited = true;
+    });
+
+    const tagsField = this.createField(
+      card,
+      t("publish.tags"),
+      t("publish.tagsHint")
+    );
+    const tagsInput = this.createInput(
+      tagsField,
+      this.state.tags,
+      t("publish.tagsPlaceholder")
+    );
+    const tagPreview = tagsField.createDiv({ cls: "wp-tag-preview" });
+    const renderTagPreview = () => {
+      tagPreview.empty();
+      const tags = parseTagList(tagsInput.value);
+      for (const tag of tags) {
+        tagPreview.createSpan({ cls: "wp-tag", text: `#${tag}` });
+      }
+      tagPreview.toggleClass("wp-tag-preview-empty", tags.length === 0);
+    };
+    tagsInput.addEventListener("input", () => {
+      this.state.tags = tagsInput.value;
+      renderTagPreview();
+    });
+    renderTagPreview();
+  }
+
+  private renderPublishCard(container: HTMLElement): void {
+    const { card } = this.createCard(
+      container,
+      t("publish.tabDetails"),
+      "send"
+    );
+
+    const siteField = this.createField(card, t("publish.site"));
+    const siteSelect = this.createSelect(
+      siteField,
+      Object.fromEntries(
+        this.sites.map((site) => [site.id, site.name || site.url])
+      ),
+      this.site.id
+    );
+    siteSelect.disabled = this.sites.length <= 1 || this.busy;
+    siteSelect.addEventListener("change", () => {
+      void this.changeSite(siteSelect.value);
+    });
+
+    const statusField = this.createField(card, t("publish.status"));
+    const statusSelect = this.createSelect(
+      statusField,
+      Object.fromEntries(
+        POST_STATUSES.map((status) => [status, statusLabel(status)])
+      ),
+      this.state.status
+    );
+    statusSelect.addEventListener("change", () => {
+      const status = statusSelect.value as PostStatus;
+      this.state.status = status;
+      if (status === "future" && !this.state.scheduledDate) {
+        this.state.scheduledDate = defaultScheduleValue();
+      }
+      this.render();
+    });
 
     if (this.state.status === "future") {
-      new Setting(container)
-        .setName(t("publish.schedule"))
-        .setDesc(t("publish.scheduleHint"))
-        .addText((text) => {
-          text.inputEl.type = "datetime-local";
-          text.setValue(this.state.scheduledDate).onChange((value) => {
-            this.state.scheduledDate = value;
-          });
-        });
+      const scheduleField = this.createField(
+        card,
+        t("publish.schedule"),
+        t("publish.scheduleHint")
+      );
+      const scheduleInput = this.createInput(
+        scheduleField,
+        this.state.scheduledDate,
+        "",
+        "datetime-local"
+      );
+      scheduleInput.addEventListener("input", () => {
+        this.state.scheduledDate = scheduleInput.value;
+      });
     }
 
-    new Setting(container)
-      .setName(t("publish.slug"))
-      .addText((text) => {
-        text
-          .setPlaceholder(t("publish.slugPlaceholder"))
-          .setValue(this.state.slug)
-          .onChange((value) => {
-            this.state.slug = value.trim();
-            this.state.slugEdited = true;
-          });
-      })
-      .addExtraButton((button) =>
-        button
-          .setIcon("refresh-cw")
-          .setTooltip(t("publish.slug"))
-          .onClick(() => {
-            this.state.slug = makeSlug(this.state.title);
-            this.state.slugEdited = true;
-            this.render();
-          })
-      );
-
-    new Setting(container)
-      .setName(t("publish.excerpt"))
-      .addTextArea((text) => {
-        text
-          .setPlaceholder(t("publish.excerptPlaceholder"))
-          .setValue(this.state.excerpt)
-          .onChange((value) => {
-            this.state.excerpt = value;
-            this.state.excerptEdited = true;
-          });
-        text.inputEl.rows = 3;
-      });
-
-    this.renderCategories(container);
-    this.renderTags(container);
-    this.renderFeaturedImage(container);
-    this.renderAdvanced(container);
+    const slugField = this.createField(card, t("publish.slug"));
+    const slugRow = slugField.createDiv({ cls: "wp-input-row" });
+    const slugInput = this.createInput(
+      slugRow,
+      this.state.slug,
+      t("publish.slugPlaceholder")
+    );
+    slugInput.addEventListener("input", () => {
+      this.state.slug = slugInput.value.trim();
+      this.state.slugEdited = true;
+    });
+    this.iconButton(slugRow, "refresh-cw", t("publish.slug"), () => {
+      this.state.slug = makeSlug(this.state.title);
+      this.state.slugEdited = true;
+      this.render();
+    });
   }
 
   private renderCategories(container: HTMLElement): void {
-    const section = container.createDiv({ cls: "wp-form-section" });
-    const head = section.createDiv({ cls: "wp-section-head" });
-    head.createEl("h3", { text: t("publish.categories") });
-    const refresh = head.createEl("button", {
-      cls: "wp-link-button",
-      text: t("publish.categoriesRefresh")
-    });
-    refresh.addEventListener("click", async () => {
-      refresh.disabled = true;
-      await this.loadCategories();
-      refresh.disabled = false;
-      this.renderCategoryList();
-    });
+    const { card, head } = this.createCard(
+      container,
+      t("publish.categories"),
+      "folder"
+    );
+    const refresh = this.iconButton(
+      head,
+      "refresh-cw",
+      t("publish.categoriesRefresh"),
+      () => {
+        void (async () => {
+          refresh.disabled = true;
+          await this.loadCategories();
+          refresh.disabled = false;
+          this.renderCategoryList();
+        })();
+      }
+    );
 
-    const search = section.createEl("input", {
-      cls: "wp-category-search",
+    const search = card.createEl("input", {
+      cls: "wp-input wp-category-search",
       attr: {
         type: "search",
         placeholder: t("publish.categorySearch")
@@ -561,46 +702,50 @@ export class PublishModal extends Modal {
       this.renderCategoryList();
     });
 
-    this.categoryListEl = section.createDiv({ cls: "wp-category-picker" });
+    this.categoryListEl = card.createDiv({ cls: "wp-category-picker" });
 
-    const createRow = section.createDiv({ cls: "wp-category-create" });
+    const createRow = card.createDiv({ cls: "wp-category-create" });
     const nameInput = createRow.createEl("input", {
+      cls: "wp-input",
       attr: {
         type: "text",
         placeholder: t("publish.newCategoryPlaceholder")
       }
     });
     const addButton = createRow.createEl("button", {
+      cls: "wp-small-button",
       text: t("common.add")
     });
-    addButton.addEventListener("click", async () => {
-      const name = nameInput.value.trim();
-      if (!name) {
-        return;
-      }
-      addButton.disabled = true;
-      try {
-        const client = this.plugin.publisher.createClient(this.site);
-        const category = await client.createCategory(name);
-        this.categories.push(category);
-        this.categories.sort((left, right) =>
-          left.name.localeCompare(right.name)
-        );
-        this.categoriesLoaded = true;
-        this.categoryError = "";
-        this.state.categoryIds.add(category.id);
-        nameInput.value = "";
-        this.renderCategoryList();
-        new Notice(t("notice.categoryCreated", { name: category.name }));
-      } catch (error) {
-        new Notice(
-          t("publish.categoryCreateFailed", {
-            error: errorMessage(error)
-          })
-        );
-      } finally {
-        addButton.disabled = false;
-      }
+    addButton.addEventListener("click", () => {
+      void (async () => {
+        const name = nameInput.value.trim();
+        if (!name) {
+          return;
+        }
+        addButton.disabled = true;
+        try {
+          const client = this.plugin.publisher.createClient(this.site);
+          const category = await client.createCategory(name);
+          this.categories.push(category);
+          this.categories.sort((left, right) =>
+            left.name.localeCompare(right.name)
+          );
+          this.categoriesLoaded = true;
+          this.categoryError = "";
+          this.state.categoryIds.add(category.id);
+          nameInput.value = "";
+          this.renderCategoryList();
+          new Notice(t("notice.categoryCreated", { name: category.name }));
+        } catch (error) {
+          new Notice(
+            t("publish.categoryCreateFailed", {
+              error: errorMessage(error)
+            })
+          );
+        } finally {
+          addButton.disabled = false;
+        }
+      })();
     });
 
     this.renderCategoryList();
@@ -675,177 +820,158 @@ export class PublishModal extends Modal {
     }
   }
 
-  private renderTags(container: HTMLElement): void {
-    new Setting(container)
-      .setName(t("publish.tags"))
-      .setDesc(t("publish.tagsHint"))
-      .addText((text) =>
-        text
-          .setPlaceholder(t("publish.tagsPlaceholder"))
-          .setValue(this.state.tags)
-          .onChange((value) => {
-            this.state.tags = value;
-          })
-      );
-  }
-
   private renderFeaturedImage(container: HTMLElement): void {
-    let inputEl: HTMLInputElement | null = null;
-    const setting = new Setting(container)
-      .setName(t("publish.featuredImage"))
-      .addText((text) => {
-        text
-          .setPlaceholder(t("publish.featuredPlaceholder"))
-          .setValue(this.state.featuredImage)
-          .onChange((value) => {
-            this.state.featuredImage = value;
-            this.state.featuredMediaId = value.trim() ? undefined : 0;
-            this.updateFeaturedHint(setting.settingEl);
-          });
-        inputEl = text.inputEl;
-      })
-      .addExtraButton((button) =>
-        button
-          .setIcon("image")
-          .setTooltip(t("publish.chooseImage"))
-          .onClick(() => {
-            new ImageSuggestModal(this.app, (file) => {
-              this.state.featuredImage = file.path;
-              this.state.featuredMediaId = undefined;
-              if (inputEl) {
-                inputEl.value = file.path;
-              }
-              this.updateFeaturedHint(setting.settingEl);
-            }).open();
-          })
-      )
-      .addExtraButton((button) =>
-        button
-          .setIcon("image-plus")
-          .setTooltip(t("publish.useFirstImage"))
-          .onClick(() => {
-            const source = firstImageSource(this.note.body);
-            if (!source) {
-              new Notice(t("publish.noImageFound"));
-              return;
-            }
-            this.state.featuredImage = source;
-            this.state.featuredMediaId = undefined;
-            if (inputEl) {
-              inputEl.value = source;
-            }
-            this.updateFeaturedHint(setting.settingEl);
-          })
-      )
-      .addExtraButton((button) =>
-        button
-          .setIcon("x")
-          .setTooltip(t("publish.clearImage"))
-          .onClick(() => {
-            this.state.featuredImage = "";
-            this.state.featuredMediaId = 0;
-            if (inputEl) {
-              inputEl.value = "";
-            }
-            this.updateFeaturedHint(setting.settingEl);
-          })
-      );
+    const { card } = this.createCard(
+      container,
+      t("publish.featuredImage"),
+      "image"
+    );
+    const row = card.createDiv({ cls: "wp-input-row" });
+    const input = this.createInput(
+      row,
+      this.state.featuredImage,
+      t("publish.featuredPlaceholder")
+    );
+    const hint = card.createDiv({ cls: "wp-field-hint wp-muted" });
+    const refreshHint = () => this.updateFeaturedHint(hint);
 
-    this.updateFeaturedHint(setting.settingEl);
+    input.addEventListener("input", () => {
+      this.state.featuredImage = input.value;
+      this.state.featuredMediaId = input.value.trim() ? undefined : 0;
+      refreshHint();
+    });
+
+    this.iconButton(row, "image", t("publish.chooseImage"), () => {
+      new ImageSuggestModal(this.app, (file) => {
+        this.state.featuredImage = file.path;
+        this.state.featuredMediaId = undefined;
+        input.value = file.path;
+        refreshHint();
+      }).open();
+    });
+
+    this.iconButton(row, "image-plus", t("publish.useFirstImage"), () => {
+      const source = firstImageSource(this.note.body);
+      if (!source) {
+        new Notice(t("publish.noImageFound"));
+        return;
+      }
+      this.state.featuredImage = source;
+      this.state.featuredMediaId = undefined;
+      input.value = source;
+      refreshHint();
+    });
+
+    this.iconButton(row, "x", t("publish.clearImage"), () => {
+      this.state.featuredImage = "";
+      this.state.featuredMediaId = 0;
+      input.value = "";
+      refreshHint();
+    });
+
+    this.updateFeaturedHint(hint);
 
     if (this.plugin.settings.autoFeaturedImage && !this.state.featuredImage) {
-      container.createDiv({
-        cls: "wp-muted wp-field-hint",
+      card.createDiv({
+        cls: "wp-field-hint wp-muted",
         text: t("publish.autoFeatured")
       });
     }
   }
 
-  private updateFeaturedHint(settingEl: HTMLElement): void {
-    settingEl.querySelector(".wp-featured-hint")?.remove();
-    let hint = "";
+  private updateFeaturedHint(hint: HTMLElement): void {
+    hint.empty();
+    let text = "";
     if (this.state.featuredImage) {
-      hint = t("publish.imagePath", { path: this.state.featuredImage });
+      text = t("publish.imagePath", { path: this.state.featuredImage });
     } else if (this.state.featuredMediaId && this.state.featuredMediaId > 0) {
-      hint = t("publish.featuredExisting", {
+      text = t("publish.featuredExisting", {
         id: this.state.featuredMediaId
       });
     }
-    if (hint) {
-      settingEl.createDiv({ cls: "wp-featured-hint wp-muted", text: hint });
-    }
+    hint.setText(text);
+    hint.toggleClass("wp-field-hint-empty", !text);
   }
 
   private renderAdvanced(container: HTMLElement): void {
-    const details = container.createEl("details", { cls: "wp-advanced" });
-    details.createEl("summary", { text: t("publish.advanced") });
+    const details = container.createEl("details", {
+      cls: "wp-publish-card wp-advanced"
+    });
+    const summary = details.createEl("summary", { cls: "wp-advanced-summary" });
+    const icon = summary.createSpan({ cls: "wp-card-icon" });
+    setIcon(icon, "sliders-horizontal");
+    summary.createSpan({ cls: "wp-card-title", text: t("publish.advanced") });
+
     const body = details.createDiv({ cls: "wp-advanced-body" });
 
-    new Setting(body)
-      .setName(t("publish.format"))
-      .addDropdown((dropdown) => {
-        for (const format of POST_FORMATS) {
-          dropdown.addOption(format, formatLabel(format));
-        }
-        dropdown.setValue(this.state.format).onChange((value) => {
-          this.state.format = value as PostFormat;
-        });
-      });
+    const formatField = this.createField(body, t("publish.format"));
+    const formatSelect = this.createSelect(
+      formatField,
+      Object.fromEntries(
+        POST_FORMATS.map((format) => [format, formatLabel(format)])
+      ),
+      this.state.format
+    );
+    formatSelect.addEventListener("change", () => {
+      this.state.format = formatSelect.value as PostFormat;
+    });
 
-    new Setting(body)
-      .setName(t("publish.comments"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("open", t("comments.open"))
-          .addOption("closed", t("comments.closed"))
-          .setValue(this.state.commentStatus)
-          .onChange((value) => {
-            this.state.commentStatus = value as OpenStatus;
-          });
-      });
+    const commentsField = this.createField(body, t("publish.comments"));
+    const commentsSelect = this.createSelect(
+      commentsField,
+      { open: t("comments.open"), closed: t("comments.closed") },
+      this.state.commentStatus
+    );
+    commentsSelect.addEventListener("change", () => {
+      this.state.commentStatus = commentsSelect.value as OpenStatus;
+    });
 
-    new Setting(body)
-      .setName(t("publish.pings"))
-      .addDropdown((dropdown) => {
-        dropdown
-          .addOption("open", t("pings.open"))
-          .addOption("closed", t("pings.closed"))
-          .setValue(this.state.pingStatus)
-          .onChange((value) => {
-            this.state.pingStatus = value as OpenStatus;
-          });
-      });
+    const pingsField = this.createField(body, t("publish.pings"));
+    const pingsSelect = this.createSelect(
+      pingsField,
+      { open: t("pings.open"), closed: t("pings.closed") },
+      this.state.pingStatus
+    );
+    pingsSelect.addEventListener("change", () => {
+      this.state.pingStatus = pingsSelect.value as OpenStatus;
+    });
 
-    new Setting(body)
-      .setName(t("publish.sticky"))
-      .addToggle((toggle) =>
-        toggle.setValue(this.state.sticky).onChange((value) => {
-          this.state.sticky = value;
-        })
-      );
+    this.toggleField(
+      body,
+      t("publish.sticky"),
+      "",
+      this.state.sticky,
+      (value) => {
+        this.state.sticky = value;
+      }
+    );
 
-    new Setting(body)
-      .setName(t("publish.password"))
-      .setDesc(t("publish.passwordHint"))
-      .addText((text) => {
-        text
-          .setPlaceholder(t("publish.passwordPlaceholder"))
-          .setValue(this.state.password)
-          .onChange((value) => {
-            this.state.password = value;
-          });
-        text.inputEl.type = "password";
-        text.inputEl.autocomplete = "new-password";
-      });
+    const passwordField = this.createField(
+      body,
+      t("publish.password"),
+      t("publish.passwordHint")
+    );
+    const passwordInput = this.createInput(
+      passwordField,
+      this.state.password,
+      t("publish.passwordPlaceholder"),
+      "password"
+    );
+    passwordInput.autocomplete = "new-password";
+    passwordInput.addEventListener("input", () => {
+      this.state.password = passwordInput.value;
+    });
 
     if (this.existingPostId) {
-      new Setting(body)
-        .setName(t("publish.removePassword"))
-        .addToggle((toggle) =>
-          toggle.setValue(this.state.clearPassword).onChange((value) => {
-            this.state.clearPassword = value;
-          })
-        );
+      this.toggleField(
+        body,
+        t("publish.removePassword"),
+        "",
+        this.state.clearPassword,
+        (value) => {
+          this.state.clearPassword = value;
+        }
+      );
     }
   }
 
@@ -922,6 +1048,24 @@ export class PublishModal extends Modal {
     });
     this.submitButton.addEventListener("click", () => void this.submit());
     this.updateBusyUi();
+  }
+
+  private renderTipsCard(container: HTMLElement): void {
+    const { card } = this.createCard(
+      container,
+      t("publish.checklist"),
+      "lightbulb"
+    );
+    const list = card.createDiv({ cls: "wp-tip-list" });
+    for (const text of [
+      t("publish.checkPreview"),
+      t("publish.checkImages"),
+      t("publish.checkRemote")
+    ]) {
+      const item = list.createDiv({ cls: "wp-tip" });
+      item.createSpan({ cls: "wp-tip-dot" });
+      item.createSpan({ text });
+    }
   }
 
   private async changeSite(siteId: string): Promise<void> {

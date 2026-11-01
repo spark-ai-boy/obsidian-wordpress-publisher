@@ -5,6 +5,20 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-11-01
+
+### Changed
+
+- Adopted Obsidian's declarative settings API. Settings now appear in Obsidian 1.13+ settings search; the minimum supported Obsidian version is now 1.13.0.
+- Removed direct `localStorage` access; automatic locale detection uses the rendered Obsidian locale and browser fallback.
+- Added GitHub artifact attestations for `main.js`, `manifest.json`, and `styles.css`.
+
+### Fixed
+
+- Removed unsafe `any` assignments and member access around frontmatter/status handling.
+- Removed redundant type assertions, replaced `globalThis`, removed an unnecessary escape, and switched detached element creation to Obsidian DOM helpers.
+- Wrapped Promise-returning event handlers so listeners return `void`.
+
 ## [Unreleased]
 
 ## [0.1.0] - 2026-10-31

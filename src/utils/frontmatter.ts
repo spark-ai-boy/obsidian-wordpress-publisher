@@ -83,12 +83,14 @@ export function getFrontmatterString(
   keys: string[]
 ): string | undefined {
   for (const key of keys) {
-    const value = frontmatter?.[key];
+    const value: unknown = frontmatter?.[key];
     if (typeof value === "string" && value.trim()) {
       return value.trim();
     }
     if (Array.isArray(value)) {
-      const first = value.find((item) => typeof item === "string" && item.trim());
+      const first: unknown = value.find(
+        (item) => typeof item === "string" && item.trim()
+      );
       if (typeof first === "string") {
         return first.trim();
       }

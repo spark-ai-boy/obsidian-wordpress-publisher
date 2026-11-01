@@ -428,7 +428,7 @@ export class PublisherService {
     featuredSource?: string;
   }): Promise<void> {
     const { file, post, site, options, tagNames } = context;
-    await this.host.app.fileManager.processFrontMatter(file, (frontmatter) => {
+    await this.host.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
       frontmatter[FRONTMATTER_KEYS.postId] = post.id;
       frontmatter[FRONTMATTER_KEYS.postUrl] = post.link;
       frontmatter[FRONTMATTER_KEYS.siteUrl] = normalizeSiteUrl(site.url);

@@ -71,9 +71,7 @@ export class NoteService {
     const raw = await this.app.vault.read(file);
     const body = stripFrontmatter(raw);
     const frontmatter =
-      (this.app.metadataCache.getFileCache(file)?.frontmatter as
-        | Record<string, unknown>
-        | undefined) ?? {};
+      this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
     const meta = readNoteMeta(frontmatter);
     const leading = settings.useFirstHeadingAsTitle
       ? extractLeadingH1(body)

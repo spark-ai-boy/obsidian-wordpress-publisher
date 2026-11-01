@@ -9,6 +9,7 @@ import type {
   MediaCacheEntry,
   PluginData,
   PublishHistoryEntry,
+  PostStatus,
   PublisherSettings,
   SiteProfile
 } from "./types";
@@ -21,6 +22,13 @@ import { setLanguage, statusLabel, t } from "./i18n";
 import { PublisherSettingTab } from "./ui/settings-tab";
 import { PublishModal } from "./ui/publish-modal";
 import { HistoryModal } from "./ui/history-modal";
+
+function isPostStatus(value: unknown): value is PostStatus {
+  return (
+    typeof value === "string" &&
+    POST_STATUSES.some((status) => status === value)
+  );
+}
 
 function isHistoryEntry(value: unknown): value is PublishHistoryEntry {
   if (!value || typeof value !== "object") {
@@ -172,13 +180,9 @@ export default class WordPressPublisherPlugin
 
     this.statusBarEl.show();
     const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    const rawStatus = frontmatter?.[FRONTMATTER_KEYS.status];
-    const hasStatus =
-      typeof rawStatus === "string" &&
-      POST_STATUSES.includes(rawStatus as (typeof POST_STATUSES)[number]);
-    const label = hasStatus
-      ? statusLabel(rawStatus as string)
-      : t("status.notPublished");
+    const rawStatus: unknown = frontmatter?.[FRONTMATTER_KEYS.status];
+    const status = isPostStatus(rawStatus) ? rawStatus : null;
+    const label = status ? statusLabel(status) : t("status.notPublished");
     this.statusBarEl.setText(`WordPress: ${label}`);
     this.statusBarEl.setAttr("aria-label", t("statusBar.tooltip"));
     this.statusBarEl.setAttr("title", t("statusBar.tooltip"));
@@ -191,9 +195,7 @@ export default class WordPressPublisherPlugin
       "wp-status-future",
       "wp-status-none"
     );
-    this.statusBarEl.addClass(
-      `wp-status-${hasStatus ? String(rawStatus) : "none"}`
-    );
+    this.statusBarEl.addClass(`wp-status-${status ?? "none"}`);
   }
 
   private registerCommands(): void {
@@ -301,9 +303,8 @@ export default class WordPressPublisherPlugin
 
   private linkedSiteUrl(file: TFile): string | undefined {
     const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    return typeof frontmatter?.[FRONTMATTER_KEYS.siteUrl] === "string"
-      ? (frontmatter[FRONTMATTER_KEYS.siteUrl] as string)
-      : undefined;
+    const value: unknown = frontmatter?.[FRONTMATTER_KEYS.siteUrl];
+    return typeof value === "string" ? value : undefined;
   }
 
   private siteForFile(file: TFile): SiteProfile | undefined {

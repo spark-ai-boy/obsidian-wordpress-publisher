@@ -5,7 +5,7 @@ import type {
   SiteProfile
 } from "./types";
 
-export const PLUGIN_ID = "wordpress-publisher";
+export const PLUGIN_ID = "wordpress-publisher-pro";
 export const PLUGIN_NAME = "WordPress Publisher";
 export const REPO_URL =
   "https://github.com/spark-ai-boy/obsidian-wordpress-publisher";

@@ -11,26 +11,16 @@ const dictionaries: Record<ResolvedLanguage, Record<TranslationKey, string>> = {
 
 let currentLanguage: ResolvedLanguage = detectObsidianLanguage();
 
-/** Read Obsidian's own locale, falling back to the browser locale. */
+/** Read Obsidian's rendered locale, falling back to the browser locale. */
 export function detectObsidianLanguage(): ResolvedLanguage {
   let code = "";
   try {
-    if (typeof window !== "undefined") {
-      code = window.localStorage.getItem("language") ?? "";
-    }
+    code =
+      (typeof document !== "undefined" && document.documentElement.lang) ||
+      (typeof navigator !== "undefined" && navigator.language) ||
+      "";
   } catch {
-    // localStorage can be unavailable in restricted environments.
-  }
-
-  if (!code) {
-    try {
-      code =
-        (typeof navigator !== "undefined" && navigator.language) ||
-        (typeof document !== "undefined" && document.documentElement.lang) ||
-        "";
-    } catch {
-      code = "";
-    }
+    code = "";
   }
 
   return code.toLowerCase().startsWith("zh") ? "zh" : "en";

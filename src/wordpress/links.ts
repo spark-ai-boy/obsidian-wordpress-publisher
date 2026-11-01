@@ -6,7 +6,7 @@ import { maskProtectedContent } from "../utils/markdown";
 
 function publishedUrl(app: App, file: TFile): string | undefined {
   const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
-  const value = frontmatter?.[FRONTMATTER_KEYS.postUrl];
+  const value: unknown = frontmatter?.[FRONTMATTER_KEYS.postUrl];
   return typeof value === "string" && /^https?:\/\//i.test(value)
     ? value
     : undefined;

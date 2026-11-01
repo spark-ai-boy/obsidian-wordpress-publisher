@@ -125,12 +125,14 @@ export class HistoryModal extends Modal {
       text: t("common.delete"),
       cls: "mod-warning"
     });
-    remove.addEventListener("click", async () => {
-      this.plugin.data.history = this.plugin.data.history.filter(
-        (candidate) => candidate.id !== entry.id
-      );
-      await this.plugin.saveSettings();
-      this.render();
+    remove.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.data.history = this.plugin.data.history.filter(
+          (candidate) => candidate.id !== entry.id
+        );
+        await this.plugin.saveSettings();
+        this.render();
+      })();
     });
   }
 }

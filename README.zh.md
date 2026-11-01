@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/spark-ai-boy/obsidian-wordpress-publisher?style=flat-square)](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/releases)
 [![CI](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/actions/workflows/ci.yml/badge.svg)](https://github.com/spark-ai-boy/obsidian-wordpress-publisher/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.5-7c3aed?style=flat-square)](https://obsidian.md)
+[![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.13-7c3aed?style=flat-square)](https://obsidian.md)
 [![WordPress](https://img.shields.io/badge/WordPress-5.6%2B-21759b?style=flat-square)](https://wordpress.org)
 
 **中文** · [English](README.md)
@@ -71,7 +71,7 @@ Publish Obsidian notes to WordPress with post creation/updating, categories and 
 
 ## 环境要求
 
-- **Obsidian** 1.5.0 或更高版本。
+- **Obsidian** 1.13.0 或更高版本。
 - **WordPress** 5.6 或更高版本（应用程序密码随 5.6 进入核心）。
 - WordPress 站点启用 REST API，且固定链接不是“朴素”模式。
 - 使用 **HTTPS**。WordPress 默认要求 HTTPS 才允许应用程序密码；本机开发环境可通过 `WP_ENVIRONMENT_TYPE=local` 放行。
@@ -397,6 +397,7 @@ wordpress_remote_modified:
   - 不要把包含该文件的库同步到不受信任的设备。
   - 怀疑泄露时，立即在 WordPress 后台撤销对应应用程序密码。
 - 插件不发送遥测、统计或分析数据。
+- 图片选择器只会在你打开它时枚举图片文件路径；不会在启动时扫描 Vault，也不会上传文件路径。
 - 下载远程图片时不会附带 WordPress 凭据。
 - 发布 HTML 前会移除 `<script>`、`<style>`、`<iframe>`、内联事件属性和 `javascript:` 链接。
 - WordPress 自身仍会对内容做权限相关的过滤；最终安全边界由 WordPress 站点决定。
@@ -482,7 +483,7 @@ wordpress_remote_modified:
 
 - Node.js 20+
 - npm 9+
-- Obsidian 1.5+
+- Obsidian 1.13+
 
 ### 本地开发
 

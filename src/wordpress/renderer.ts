@@ -41,7 +41,7 @@ function cleanElement(root: HTMLElement): number {
       /\.md(?:#.*)?$/i.test(href) ||
       /^(?:javascript|vbscript|data):/i.test(href)
     ) {
-      const span = document.createElement("span");
+      const span = createEl("span");
       span.textContent = textOf(anchor) || href;
       anchor.replaceWith(span);
     }
@@ -59,7 +59,7 @@ export class RenderService {
   }
 
   async renderToHtml(markdown: string, sourcePath: string): Promise<RenderResult> {
-    const container = document.createElement("div");
+    const container = createEl("div");
     const owner = new Component();
     const child = new MarkdownRenderChild(container);
     owner.addChild(child);
