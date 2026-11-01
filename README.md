@@ -6,7 +6,7 @@
 [![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.5-7c3aed?style=flat-square)](https://obsidian.md)
 [![WordPress](https://img.shields.io/badge/WordPress-5.6%2B-21759b?style=flat-square)](https://wordpress.org)
 
-[中文](README.md) · **English**
+[中文](README.zh.md) · **English**
 
 ![WordPress Publisher](docs/banner.svg)
 
@@ -83,7 +83,7 @@ Publish Obsidian notes to WordPress with post creation/updating, categories and 
 2. Create this folder in your vault:
 
    ```text
-   <your-vault>/.obsidian/plugins/obsidian-wordpress-publisher/
+   <your-vault>/.obsidian/plugins/wordpress-publisher-pro/
    ```
 
 3. Copy all three files into the folder.
@@ -347,7 +347,7 @@ Use the preview before publishing.
 - The plugin only contacts sites you configure.
 - Authentication uses a WordPress Application Password over HTTP Basic.
 - **Use HTTPS**; HTTP transmits credentials in clear text.
-- Credentials are stored unencrypted in `.obsidian/plugins/obsidian-wordpress-publisher/data.json`.
+- Credentials are stored unencrypted in `.obsidian/plugins/wordpress-publisher-pro/data.json`.
   - Do not commit `data.json`.
   - Do not sync the vault to untrusted devices.
   - Revoke the application password in WordPress if it may have leaked.
@@ -424,7 +424,7 @@ See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 ### Uninstall
 
 1. Disable and remove the plugin in Obsidian.
-2. Optionally delete `.obsidian/plugins/obsidian-wordpress-publisher/`.
+2. Optionally delete `.obsidian/plugins/wordpress-publisher-pro/`.
 3. Revoke the application password in WordPress.
 4. Published posts and note frontmatter remain.
 
@@ -450,7 +450,7 @@ npm run dev
 `npm run dev` watches the source and writes `main.js`, but does not copy it to a vault. Link the repository into a test vault:
 
 ```bash
-ln -s "$PWD" "/path/to/your/vault/.obsidian/plugins/obsidian-wordpress-publisher"
+ln -s "$PWD" "/path/to/your/vault/.obsidian/plugins/wordpress-publisher-pro"
 ```
 
 Windows:

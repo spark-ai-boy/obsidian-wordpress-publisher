@@ -6,7 +6,7 @@
 [![Obsidian](https://img.shields.io/badge/Obsidian-%E2%89%A51.5-7c3aed?style=flat-square)](https://obsidian.md)
 [![WordPress](https://img.shields.io/badge/WordPress-5.6%2B-21759b?style=flat-square)](https://wordpress.org)
 
-**中文** · [English](README.en.md)
+**中文** · [English](README.md)
 
 ![WordPress Publisher](docs/banner.svg)
 
@@ -93,7 +93,7 @@ Publish Obsidian notes to WordPress with post creation/updating, categories and 
 2. 在库中创建目录：
 
    ```text
-   <你的库>/.obsidian/plugins/obsidian-wordpress-publisher/
+   <你的库>/.obsidian/plugins/wordpress-publisher-pro/
    ```
 
    Windows 路径示例：
@@ -392,7 +392,7 @@ wordpress_remote_modified:
 - 只连接你在设置中配置的 WordPress 站点。
 - 使用 WordPress 应用程序密码，并通过 HTTP Basic 认证发送。
 - **必须使用 HTTPS**；HTTP 会以明文传输凭据。
-- 凭据以未加密形式保存在库的 `.obsidian/plugins/obsidian-wordpress-publisher/data.json`。
+- 凭据以未加密形式保存在库的 `.obsidian/plugins/wordpress-publisher-pro/data.json`。
   - 不要把 `data.json` 提交到 Git。
   - 不要把包含该文件的库同步到不受信任的设备。
   - 怀疑泄露时，立即在 WordPress 后台撤销对应应用程序密码。
@@ -470,7 +470,7 @@ wordpress_remote_modified:
 ### 如何完全卸载
 
 1. 在 Obsidian 中禁用并删除插件。
-2. 可选：删除库中 `.obsidian/plugins/obsidian-wordpress-publisher/`。
+2. 可选：删除库中 `.obsidian/plugins/wordpress-publisher-pro/`。
 3. 在 WordPress 后台撤销应用程序密码。
 4. 已发布文章不受影响；笔记 frontmatter 也保留，方便以后重新关联。
 
@@ -496,7 +496,7 @@ npm run dev
 `npm run dev` 会监听源码并生成 `main.js`，但不会自动复制到库。可以把仓库目录链接到测试库：
 
 ```bash
-ln -s "$PWD" "/path/to/your/vault/.obsidian/plugins/obsidian-wordpress-publisher"
+ln -s "$PWD" "/path/to/your/vault/.obsidian/plugins/wordpress-publisher-pro"
 ```
 
 Windows（管理员命令提示符）：
